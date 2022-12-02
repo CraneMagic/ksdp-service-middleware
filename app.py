@@ -670,25 +670,11 @@ def register():
 
 
 @app.route('/manual', methods=['POST'])
-@token_required
+# @token_required
 def manual(currentuser):
     warehouseId = 'DP-Kunshan'
     currentDateTime = datetime.datetime.now()
     craneId = '85'
-    action_to_area_id = {
-        11: 'KW01',
-        12: 'KW02',
-        13: 'KW03',
-        14: 'KW04',
-        15: 'KW05',
-        16: 'KW06',
-        17: 'KW07',
-        18: 'KW08',
-        19: 'KW09',
-        20: 'KW10',
-        21: 'KW11',
-        22: 'KW12',
-    }
     # 中控手动操作智能行车接口
     reqJson = request.get_json(silent=True)
     print(reqJson)
@@ -713,26 +699,139 @@ def manual(currentuser):
                 'yAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[1]),
                 'zAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[2]),
             }
+    action_id = int(request_data.get('action', None))
+    materialWeight = '1000'
+    materials = ['VirtualMaterial,0,0,0,%s' % materialWeight]
+    craneMaxHeight = 3000
     if request_data.get('type', None) == 1:
         # 601 中控手动操作智能行车接口-暂不支持该操作类型
-        return json.dumps({
+        # return json.dumps({
+        #     'request_code': reqJson['request_code'],
+        #     'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        #     'response_result': 601,
+        #     'response_data': {}
+        # })
+        
+        data_distance = int(request_data.get('data', None))
+        if action_id not in [1, 2, 3, 4, 5, 6, 7, 8]:
+            # 601 中控手动操作智能行车接口-action不存在
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 601,
+                'response_data': {}
+            })
+        targetPosition = {
+            'xAxis': cranePosition['xAxis'],
+            'yAxis': cranePosition['yAxis'],
+            'zAxis': cranePosition['zAxis'],
+        }
+        if action_id == 1:
+            targetPosition['yAxis'] += data_distance
+        elif action_id == 2:
+            targetPosition['yAxis'] -= data_distance
+        elif action_id == 3:
+            targetPosition['xAxis'] += data_distance
+        elif action_id == 4:
+            targetPosition['xAxis'] -= data_distance
+        elif action_id == 5:
+            targetPosition['zAxis'] -= data_distance
+            if targetPosition['zAxis'] < 0:
+                targetPosition['zAxis'] = 0
+        elif action_id == 6:
+            targetPosition['zAxis'] += data_distance
+            
+            if targetPosition['zAxis'] > craneMaxHeight:
+                targetPosition['zAxis'] = craneMaxHeight
+        elif action_id == 7:
+            single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'grab') }]
+        elif action_id == 8:
+            single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'release') }]
+        
+
+        id = 'S-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
+        print(cranePosition, targetPosition)
+        if action_id in [7, 8]:
+            actionSeq = single_action
+        else:
+            actionSeq = path_algorithm_two_point(cranePosition, targetPosition)
+        sendTime = currentDateTime.strftime('%Y-%m-%d %H:%M:%S')
+        # 发送 MQTT 消息
+        payload = {
+            'eventType': 'CroneControl',
+            'siteIp': '192.168.0.1',
+            'eventDate': sendTime,
+            'eventdata': {
+                'CraneID': craneId,
+                'CraneTaskHanding': actionSeq,
+                'Material_info': materials[0],
+                'CraneTaskID': id,
+            }
+        }
+        transmitSingleMQTTMsgWithoutClient('iot/crane_task', str(json.dumps(payload)))
+        print(json.dumps(payload))
+        responseBody = {
             'request_code': reqJson['request_code'],
             'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'response_result': 601,
-            'response_data': {}
-        })
+            'response_result': 0,
+            'response_data': {
+                'CraneTaskID': id,
+            }
+        }
+        # return json.dumps(responseBody)
     elif request_data.get('type', None) == 2:
+        action_to_area_id = {
+            11: 'KW01',
+            12: 'KW02',
+            13: 'KW03',
+            14: 'KW04',
+            15: 'KW05',
+            16: 'KW06',
+            17: 'KW07',
+            18: 'KW08',
+            19: 'KW09',
+            20: 'KW10',
+            21: 'KW11',
+            22: 'KW12',
+            23: 'IN',
+            24: 'GW01',
+            25: 'GW02',
+        }
+        action_to_limit_operation = {
+            26: 'up_limit',
+            27: 'down_limit',
+            28: 'grab',
+            29: 'release'
+        }
         # 601 中控手动操作智能行车接口-暂不支持该操作类型
-        return json.dumps({
-            'request_code': reqJson['request_code'],
-            'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'response_result': 601,
-            'response_data': {}
-        })
-        targetArea_id = action_to_area_id[request_data.get('action', None)]
+        # return json.dumps({
+        #     'request_code': reqJson['request_code'],
+        #     'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        #     'response_result': 601,
+        #     'response_data': {}
+        # })
+        if action_id not in list(action_to_area_id.keys()) and action_id not in list(action_to_limit_operation.keys()):
+            # 602 中控手动操作智能行车接口-action不存在
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 602,
+                'response_data': {}
+            })
+        if action_id in list(action_to_limit_operation.keys()):
+            if action_id == 26:
+                single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(0), 'move') }]
+            elif action_id == 27:
+                single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(craneMaxHeight), 'move') }]
+            elif action_id == 28:
+                single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'grab') }]
+            elif action_id == 29:
+                single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'release') }]
+        
+        targetArea_id = action_to_area_id[action_id]
         # 获取库位信息
-        area_cols = ['id', 'xAxis', 'yAxis', 'zAxis']
-        area_conditions = ['id=\'%s\'' % action_to_area_id[request_data.get('action', None)], 'warehouse_id=\'%s\'' % warehouseId]
+        area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height']
+        area_conditions = ['id=\'%s\'' % targetArea_id, 'warehouse_id=\'%s\'' % warehouseId]
         (status, area_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), area_cols, 'view_area', area_conditions)
         if not status:
             # 999 未知错误
@@ -750,32 +849,56 @@ def manual(currentuser):
                 'response_result': 999,
                 'response_data': {}
             })
-        targetPosition = {
-            'xAxis': area_res[0]['xAxis'],
-            'yAxis': area_res[0]['yAxis'],
-            'zAxis': area_res[0]['zAxis'],
-        }
-        # 写入 task 数据库
-        materialWeight = '1000'
-        id = 'S-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
-        materials = ['fakematerial,0,0,0,%s' % materialWeight]
-        print(cranePosition, targetPosition)
-        actionSeq = path_algorithm_two_point(cranePosition, targetPosition)
-        sendTime = currentDateTime.strftime('%Y-%m-%d %H:%M:%S')
-        tasksql = "INSERT INTO task(`id`, `crane_id`, `sourceArea_id`, `targetArea_id`, `materials`, `actionSeq`, `warehouse_id`, `sendTime`, `status`) "\
-            "VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');" % (id, craneId, None, targetArea_id, str(materials).replace("'", '"'), str(actionSeq).replace("'", '"'), warehouseId, sendTime, 'PENDING')
-        print(tasksql)
-        # print('database')
-        (status, mutateRes) = mutate(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), tasksql.replace("'None'", None))
+        viewname = 'view_material'
+        tablename = viewname.replace('view_', '')
+        cols = FULLCOLS[viewname]
+        # 计算 TargetArea 高度
+        targetAreaHeight = 0
+        conditions2 = ['warehouse_id=\'%s\'' % warehouseId, 'area_id=\'%s\'' % targetArea_id]
+        (status, res2) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), cols, viewname, conditions2)
         if not status:
-            print(mutateRes)
             # 999 未知错误
             return json.dumps({
                 'request_code': reqJson['request_code'],
                 'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'response_result': 999,
-                'response_data': {}
+                'response_data': {'data': 13}
             })
+        res_reformat2 = database_response_reformat(tablename, res2)
+        # print(res_reformat2)
+        for material in res_reformat2:
+            # print(int(material['model']['size']['height']))
+            targetAreaHeight += int(material['model']['size']['height'])
+        targetPosition = {
+            'xAxis': area_res[0]['xAxis'],
+            'yAxis': area_res[0]['yAxis'],
+            'zAxis': 0,
+            # 'zAxis': area_res[0]['height'] - targetAreaHeight,
+        }
+        # 写入 task 数据库
+        id = 'S-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
+        print(cranePosition, targetPosition)
+        if action_id in [26, 27, 28, 29]:
+            actionSeq = single_action
+        else:
+            actionSeq = path_algorithm_two_point(cranePosition, targetPosition)
+        sendTime = currentDateTime.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # tasksql = "INSERT INTO task(`id`, `crane_id`, `sourceArea_id`, `targetArea_id`, `materials`, `actionSeq`, `warehouse_id`, `sendTime`, `status`) "\
+        #     "VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');" % (id, craneId, None, targetArea_id, str(materials).replace("'", '"'), str(actionSeq).replace("'", '"'), warehouseId, sendTime, 'PENDING')
+        # print(tasksql)
+        # # print('database')
+        # (status, mutateRes) = mutate(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), tasksql.replace("'None'", None))
+        # if not status:
+        #     # print(mutateRes)
+        #     # 999 未知错误
+        #     return json.dumps({
+        #         'request_code': reqJson['request_code'],
+        #         'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        #         'response_result': 999,
+        #         'response_data': {}
+        #     })
+        
         # 发送 MQTT 消息
         payload = {
             'eventType': 'CroneControl',
@@ -806,14 +929,14 @@ def manual(currentuser):
             'response_result': 1,
             'response_data': {}
         })
-    responseBody = {
-        'request_code': reqJson['request_code'],
-        'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'response_result': 0,
-        'response_data': {
+    # responseBody = {
+    #     'request_code': reqJson['request_code'],
+    #     'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    #     'response_result': 0,
+    #     'response_data': {
             
-        }
-    }
+    #     }
+    # }
     return json.dumps(responseBody)
 
 if __name__ == '__main__':

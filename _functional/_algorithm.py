@@ -18,4 +18,5 @@ def path_algorithm_two_point(cranePosition, targetPosition):
     positions.append({ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(0), 'move') })
     positions.append({ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(targetPosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(0), 'move') })
     positions.append({ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(targetPosition['xAxis']), '{:0>6d}'.format(targetPosition['yAxis']), '{:0>6d}'.format(0), 'move') })
+    positions.append({ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(targetPosition['xAxis']), '{:0>6d}'.format(targetPosition['yAxis']), '{:0>6d}'.format(int(targetPosition['zAxis'])), 'move') })
     return positions
