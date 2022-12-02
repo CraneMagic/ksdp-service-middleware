@@ -483,7 +483,7 @@ def sendTask():
             'CraneID': craneId,
             'CraneTaskHanding': actionSeq,
             'Material_info': materials[0],
-            'CraneTaskID': id,
+            'CraneTaskID': request_data.get('mission_no'),
         }
     }
     transmitSingleMQTTMsgWithoutClient('iot/crane_task', str(json.dumps(payload)))
@@ -493,7 +493,9 @@ def sendTask():
         'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'response_result': 0,
         'response_data': {
-            'CraneTaskID': id,
+            'DatabaseTaskID': id,
+            'CraneTaskID': request_data.get('mission_no'),
+            'mission_no': request_data.get('mission_no')
         }
     }
     return json.dumps(responseBody)
@@ -671,7 +673,7 @@ def register():
 
 @app.route('/manual', methods=['POST'])
 # @token_required
-def manual(currentuser):
+def manual():
     warehouseId = 'DP-Kunshan'
     currentDateTime = datetime.datetime.now()
     craneId = '85'
@@ -692,13 +694,12 @@ def manual(currentuser):
                 'response_result': 600,
                 'response_data': {}
             })
-    else:
-        if dictpayload.get('eventdata', None).get('Crane_Position', None):
-            cranePosition = {
-                'xAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[0]),
-                'yAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[1]),
-                'zAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[2]),
-            }
+    if dictpayload.get('eventdata', None).get('Crane_Position', None):
+        cranePosition = {
+            'xAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[0]),
+            'yAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[1]),
+            'zAxis': int(dictpayload.get('eventdata', None).get('Crane_Position', None).split(',')[2]),
+        }
     action_id = int(request_data.get('action', None))
     materialWeight = '1000'
     materials = ['VirtualMaterial,0,0,0,%s' % materialWeight]
@@ -722,9 +723,9 @@ def manual(currentuser):
                 'response_data': {}
             })
         targetPosition = {
-            'xAxis': cranePosition['xAxis'],
-            'yAxis': cranePosition['yAxis'],
-            'zAxis': cranePosition['zAxis'],
+            'xAxis': int(cranePosition['xAxis']),
+            'yAxis': int(cranePosition['yAxis']),
+            'zAxis': int(cranePosition['zAxis']),
         }
         if action_id == 1:
             targetPosition['yAxis'] += data_distance
