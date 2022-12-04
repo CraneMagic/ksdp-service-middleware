@@ -461,7 +461,7 @@ def sendTask():
     actionSeq = path_algorithm_easy(cranePosition, sourcePosition, targetPosition)
     sendTime = currentDateTime.strftime('%Y-%m-%d %H:%M:%S')
     tasksql = "INSERT INTO task(`id`, `crane_id`, `sourceArea_id`, `targetArea_id`, `materials`, `actionSeq`, `warehouse_id`, `sendTime`, `status`, `controller_task_id`) "\
-          "VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');" % (id, craneId, sourceArea_id, targetArea_id, str(materials).replace("'", '"'), str(actionSeq).replace("'", '"'), warehouseId, sendTime, 'PENDING', request_data.get('mission_no', None))
+          "VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');" % (request_data.get('mission_no', None), craneId, sourceArea_id, targetArea_id, str(materials).replace("'", '"'), str(actionSeq).replace("'", '"'), warehouseId, sendTime, 'PENDING', request_data.get('mission_no', None))
     print(tasksql)
     # print('database')
     (status, mutateRes) = mutate(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), tasksql)
@@ -493,7 +493,7 @@ def sendTask():
         'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'response_result': 0,
         'response_data': {
-            'DatabaseTaskID': id,
+            # 'DatabaseTaskID': id,
             'CraneTaskID': request_data.get('mission_no'),
             'mission_no': request_data.get('mission_no')
         }
