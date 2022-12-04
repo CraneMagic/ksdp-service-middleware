@@ -750,7 +750,7 @@ def manual():
             single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'release') }]
         
 
-        id = 'S-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
+        id = 'CManual-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
         print(cranePosition, targetPosition)
         if action_id in [7, 8]:
             actionSeq = single_action
@@ -877,7 +877,7 @@ def manual():
             # 'zAxis': area_res[0]['height'] - targetAreaHeight,
         }
         # 写入 task 数据库
-        id = 'S-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
+        id = 'CManual-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
         print(cranePosition, targetPosition)
         if action_id in [26, 27, 28, 29]:
             actionSeq = single_action
