@@ -703,7 +703,7 @@ def manual():
     action_id = int(request_data.get('action', None))
     materialWeight = '1000'
     materials = ['VirtualMaterial,0,0,0,%s' % materialWeight]
-    craneMaxHeight = 3000
+    craneMaxHeight = 1500
     if request_data.get('type', None) == 1:
         # 601 中控手动操作智能行车接口-暂不支持该操作类型
         # return json.dumps({
@@ -811,6 +811,7 @@ def manual():
         #     'response_result': 601,
         #     'response_data': {}
         # })
+        targetPosition = {}
         if action_id not in list(action_to_area_id.keys()) and action_id not in list(action_to_limit_operation.keys()):
             # 602 中控手动操作智能行车接口-action不存在
             return json.dumps({
@@ -828,55 +829,55 @@ def manual():
                 single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'grab') }]
             elif action_id == 29:
                 single_action = [{ 'Point': '%s,%s,%s,%s' % ('{:0>6d}'.format(cranePosition['xAxis']), '{:0>6d}'.format(cranePosition['yAxis']), '{:0>6d}'.format(cranePosition['zAxis']), 'release') }]
-        
-        targetArea_id = action_to_area_id[action_id]
-        # 获取库位信息
-        area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height']
-        area_conditions = ['id=\'%s\'' % targetArea_id, 'warehouse_id=\'%s\'' % warehouseId]
-        (status, area_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), area_cols, 'view_area', area_conditions)
-        if not status:
-            # 999 未知错误
-            return json.dumps({
-                'request_code': reqJson['request_code'],
-                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'response_result': 999,
-                'response_data': {}
-            })
-        if not len(area_res) == 1:
-            # 999 未知错误
-            return json.dumps({
-                'request_code': reqJson['request_code'],
-                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'response_result': 999,
-                'response_data': {}
-            })
-        viewname = 'view_material'
-        tablename = viewname.replace('view_', '')
-        cols = FULLCOLS[viewname]
-        # 计算 TargetArea 高度
-        targetAreaHeight = 0
-        conditions2 = ['warehouse_id=\'%s\'' % warehouseId, 'area_id=\'%s\'' % targetArea_id]
-        (status, res2) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), cols, viewname, conditions2)
-        if not status:
-            # 999 未知错误
-            return json.dumps({
-                'request_code': reqJson['request_code'],
-                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'response_result': 999,
-                'response_data': {'data': 13}
-            })
-        res_reformat2 = database_response_reformat(tablename, res2)
-        # print(res_reformat2)
-        for material in res_reformat2:
-            # print(int(material['model']['size']['height']))
-            targetAreaHeight += int(material['model']['size']['height'])
-        targetPosition = {
-            'xAxis': area_res[0]['xAxis'],
-            'yAxis': area_res[0]['yAxis'],
-            'zAxis': 0,
-            # 'zAxis': area_res[0]['height'] - targetAreaHeight,
-        }
-        # 写入 task 数据库
+        else:
+            targetArea_id = action_to_area_id[action_id]
+            # 获取库位信息
+            area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height']
+            area_conditions = ['id=\'%s\'' % targetArea_id, 'warehouse_id=\'%s\'' % warehouseId]
+            (status, area_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), area_cols, 'view_area', area_conditions)
+            if not status:
+                # 999 未知错误
+                return json.dumps({
+                    'request_code': reqJson['request_code'],
+                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'response_result': 999,
+                    'response_data': {}
+                })
+            if not len(area_res) == 1:
+                # 999 未知错误
+                return json.dumps({
+                    'request_code': reqJson['request_code'],
+                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'response_result': 999,
+                    'response_data': {}
+                })
+            viewname = 'view_material'
+            tablename = viewname.replace('view_', '')
+            cols = FULLCOLS[viewname]
+            # 计算 TargetArea 高度
+            targetAreaHeight = 0
+            conditions2 = ['warehouse_id=\'%s\'' % warehouseId, 'area_id=\'%s\'' % targetArea_id]
+            (status, res2) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), cols, viewname, conditions2)
+            if not status:
+                # 999 未知错误
+                return json.dumps({
+                    'request_code': reqJson['request_code'],
+                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'response_result': 999,
+                    'response_data': {'data': 13}
+                })
+            res_reformat2 = database_response_reformat(tablename, res2)
+            # print(res_reformat2)
+            for material in res_reformat2:
+                # print(int(material['model']['size']['height']))
+                targetAreaHeight += int(material['model']['size']['height'])
+            targetPosition = {
+                'xAxis': area_res[0]['xAxis'],
+                'yAxis': area_res[0]['yAxis'],
+                'zAxis': 0,
+                # 'zAxis': area_res[0]['height'] - targetAreaHeight,
+            }
+            # 写入 task 数据库
         id = 'CManual-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
         print(cranePosition, targetPosition)
         if action_id in [26, 27, 28, 29]:
