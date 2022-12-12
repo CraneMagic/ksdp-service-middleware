@@ -322,6 +322,88 @@ def sendTask():
                 'request_code': reqJson['request_code'],
                 'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'response_result': 999,
+                'response_data': {'data': 41}
+            })
+        if not len(outarea_res) == 1:
+            # 202 station不存在
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 202,
+                'response_data': {'data': 42}
+            })
+        outareaMaxHeight = int(outarea_res[0]['height'])
+        targetArea_id = request_data.get('station', None)
+        # 计算 TargetArea 高度
+        targetAreaHeight = 0
+        conditions2 = ['warehouse_id=\'%s\'' % warehouseId, 'area_id=\'%s\'' % targetArea_id]
+        (status, res2) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), cols, viewname, conditions2)
+        if not status:
+            # 999 未知错误
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 999,
+                'response_data': {'data': 43}
+            })
+        res_reformat2 = database_response_reformat(tablename, res2)
+        # print(res_reformat2)
+        for material in res_reformat2:
+            # print(int(material['model']['size']['height']))
+            targetAreaHeight += int(material['model']['size']['height'])
+        targetPosition = {
+            'xAxis': int(outarea_res[0]['xAxis'] + int(materialmodel_res[0]['length'] / 2) + int(materialmodel_res[0].get('xAxisDelta', 0))),
+            'yAxis': int(outarea_res[0]['yAxis'] + int(materialmodel_res[0]['width'] / 2) + int(materialmodel_res[0].get('yAxisDelta', 0))),
+            'zAxis': int(outareaMaxHeight - targetAreaHeight - int(materialmodel_res[0]['height'])),
+        }
+    elif request_data.get('mission_type', None) == 3:
+        # 直接上料
+
+        inarea_cols = ['id', 'height', 'xAxis', 'yAxis', 'zAxis']
+        inarea_conditions = ['type=\'%s\'' % 'IN', 'warehouse_id=\'%s\'' % warehouseId]
+        (status, inarea_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), inarea_cols, 'view_area', inarea_conditions)
+        if not status:
+            # 999 未知错误
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 999,
+                'response_data': {'data': 49}
+            })
+        inareaMaxHeight = int(inarea_res[0]['height'])
+        sourceArea_id = 'IN'
+        # 计算 SourceArea 高度
+        sourceAreaHeight = 0
+        conditions1 = ['warehouse_id=\'%s\'' % warehouseId, 'area_id=\'%s\'' % sourceArea_id]
+        (status, res1) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), cols, viewname, conditions1)
+        if not status:
+            # 999 未知错误
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 999,
+                'response_data': {'data': 40}
+            })
+        res_reformat1 = database_response_reformat(tablename, res1)
+        # print(res_reformat1)
+        for material in res_reformat1:
+            # print(int(material['model']['size']['height']))
+            sourceAreaHeight += int(material['model']['size']['height'])
+        sourcePosition = {
+            'xAxis': int(inarea_res[0]['xAxis'] + int(materialmodel_res[0]['length'] / 2) + int(materialmodel_res[0].get('xAxisDelta', 0))),
+            'yAxis': int(inarea_res[0]['yAxis'] + int(materialmodel_res[0]['width'] / 2) + int(materialmodel_res[0].get('yAxisDelta', 0))),
+            'zAxis': int(inareaMaxHeight - sourceAreaHeight),
+        }
+
+        outarea_cols = ['id', 'height', 'xAxis', 'yAxis', 'zAxis']
+        outarea_conditions = ['id=\'%s\'' % request_data.get('station', None), 'warehouse_id=\'%s\'' % warehouseId]
+        (status, outarea_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), outarea_cols, 'view_area', outarea_conditions)
+        if not status:
+            # 999 未知错误
+            return json.dumps({
+                'request_code': reqJson['request_code'],
+                'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'response_result': 999,
                 'response_data': {'data': 11}
             })
         if not len(outarea_res) == 1:
@@ -445,6 +527,36 @@ def sendTask():
                 'response_data': {}
             })
         materialId = material_res[0]['id']
+    elif request_data.get('mission_type', None) == 3:
+        # 直接上料
+        # 修改原 material 表 areaSeq 数据
+        materialId = 'AT-%s' % '{:0>6d}'.format(int(random.random() * 1000000))
+        materialsql = []
+        for item in [{'id': 'In', 'warehouse_id': warehouseId, 'deltaAreaSeq': 1}]:
+            materialsql.append("UPDATE material SET `areaSeq`=`areaSeq`+%d WHERE `area_id`='%s' AND `warehouse_id`='%s';" % (item.get('deltaAreaSeq', 0), item.get('id', None), item.get('warehouse_id', None)))
+        # 新增 material 表
+        sql_new = "INSERT INTO material(id, model_id, area_id, warehouse_id, areaSeq, createTime) VALUES"
+        for item in [{'id': materialId, 'model_id': request_data.get('steel_model', None), 'area_id': 'In', 'warehouse_id': warehouseId, 'areaSeq': 0}]:
+            id, model_id, area_id, warehouse_id = item.get('id', None), item.get('model_id', None), item.get('area_id', None), item.get('warehouse_id', None)
+            areaSeq = item.get('areaSeq', None)
+            sql_new += "('%s', '%s', '%s', '%s', %d, '%s'), " % (id, model_id, area_id, warehouse_id, areaSeq, currentDateTime.strftime('%Y-%m-%d %H:%M:%S'))
+        sql_new = sql_new[0: -2] + ';'
+        materialsql.append(sql_new)
+        print(materialsql)
+        # print('database')
+        for sqlItem in materialsql:
+            (status, mutateResItem) = mutate(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), sqlItem)
+            if status:
+                continue
+            else:
+                print(mutateResItem, DATABASE_ERROR[mutateResItem[0]])
+                # 999 未知错误
+                return json.dumps({
+                    'request_code': reqJson['request_code'],
+                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'response_result': 999,
+                    'response_data': {'data': 34}
+                })
     else:
         # 1 输入参数格式错误
             return json.dumps({
