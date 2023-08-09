@@ -944,7 +944,7 @@ def manual():
         else:
             targetArea_id = action_to_area_id[action_id]
             # 获取库位信息
-            area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height']
+            area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height', 'comment']
             area_conditions = ['id=\'%s\'' % targetArea_id, 'warehouse_id=\'%s\'' % warehouseId]
             (status, area_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), area_cols, 'view_area', area_conditions)
             if not status:
@@ -963,7 +963,30 @@ def manual():
                     'response_result': 999,
                     'response_data': {}
                 })
-            viewname = 'view_material'
+            # 获取钢板型号
+	    viewname = 'view_materialmodel'
+	    tablename = viewname.replace('view_', '')
+	    materialmodel_cols = ['id', 'length', 'width', 'height', 'xAxisDelta', 'yAxisDelta', 'zAxisDelta']
+	    materialmodel_conditions = ['name=\'%s\'' % area_res[0]['comment']]
+	    (status, materialmodel_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), materialmodel_cols, viewname, materialmodel_conditions)
+	    if not status:
+	        # 999 未知错误
+	        return json.dumps({
+	            'request_code': reqJson['request_code'],
+	            'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+	            'response_result': 999,
+	            'response_data': {'data': 4}
+	        })
+	    if not len(materialmodel_res) == 1:
+	        # 999 未知错误
+	        return json.dumps({
+	            'request_code': reqJson['request_code'],
+	            'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+	            'response_result': 999,
+	            'response_data': {'data': 512}
+	        })
+	    print(materialmodel_res)
+	    viewname = 'view_material'
             tablename = viewname.replace('view_', '')
             cols = FULLCOLS[viewname]
             # 计算 TargetArea 高度
@@ -984,12 +1007,17 @@ def manual():
                 # print(int(material['model']['size']['height']))
                 targetAreaHeight += int(material['model']['size']['height'])
             targetPosition = {
-                'xAxis': area_res[0]['xAxis'],
-                'yAxis': area_res[0]['yAxis'],
-                'zAxis': 0,
+	        'xAxis': int(area_res[0]['xAxis'] + int(materialmodel_res[0]['length'] / 2) + int(materialmodel_res[0].get('xAxisDelta', 0))),
+	        'yAxis': int(area_res[0]['yAxis'] + int(materialmodel_res[0]['width'] / 2) + int(materialmodel_res[0].get('yAxisDelta', 0))),
+	        'zAxis': 0
+	    }
+	    # targetPosition = {
+            #    'xAxis': area_res[0]['xAxis'],
+            #    'yAxis': area_res[0]['yAxis'],
+            #    'zAxis': 0,
                 # 'zAxis': area_res[0]['height'] - targetAreaHeight,
-            }
-            # 写入 task 数据库
+            # }
+        # 写入 task 数据库
         id = 'CManual-%s' % currentDateTime.strftime('%Y%m%d%H%M%S')
         print(cranePosition, targetPosition)
         if action_id in [26, 27, 28, 29]:
