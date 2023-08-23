@@ -944,7 +944,7 @@ def manual():
         else:
             targetArea_id = action_to_area_id[action_id]
             # 获取库位信息
-            area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'height', 'comment']
+            area_cols = ['id', 'xAxis', 'yAxis', 'zAxis', 'length', 'width', 'height', 'comment']
             area_conditions = ['id=\'%s\'' % targetArea_id, 'warehouse_id=\'%s\'' % warehouseId]
             (status, area_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), area_cols, 'view_area', area_conditions)
             if not status:
@@ -1015,7 +1015,7 @@ def manual():
                 # print(int(material['model']['size']['height']))
                 targetAreaHeight += int(material['model']['size']['height'])
             # ==========================
-            
+
             targetPosition = {
                 'xAxis': t_x,
                 'yAxis': t_y,
