@@ -963,29 +963,37 @@ def manual():
                     'response_result': 999,
                     'response_data': {}
                 })
-            # 获取钢板型号
-            viewname = 'view_materialmodel'
-            tablename = viewname.replace('view_', '')
-            materialmodel_cols = ['id', 'length', 'width', 'height', 'xAxisDelta', 'yAxisDelta', 'zAxisDelta']
-            materialmodel_conditions = ['name=\'%s\'' % area_res[0]['comment']]
-            (status, materialmodel_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), materialmodel_cols, viewname, materialmodel_conditions)
-            if not status:
-                # 999 未知错误
-                return json.dumps({
-                    'request_code': reqJson['request_code'],
-                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'response_result': 999,
-                    'response_data': {'data': 4}
-                })
-            if not len(materialmodel_res) == 1:
-                # 999 未知错误
-                return json.dumps({
-                    'request_code': reqJson['request_code'],
-                    'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'response_result': 999,
-                    'response_data': {'data': 512}
-                })
-            print(materialmodel_res)
+            if area_res[0].get('comment', None):
+                # 获取钢板型号
+                viewname = 'view_materialmodel'
+                tablename = viewname.replace('view_', '')
+                materialmodel_cols = ['id', 'length', 'width', 'height', 'xAxisDelta', 'yAxisDelta', 'zAxisDelta']
+                materialmodel_conditions = ['name=\'%s\'' % area_res[0]['comment']]
+                (status, materialmodel_res) = query(env.get('DB_HOST'), env.get('DB_USER'), env.get('DB_PASS'), int(env.get('DB_PORT')), env.get('DB_NAME'), materialmodel_cols, viewname, materialmodel_conditions)
+                if not status:
+                    # 999 未知错误
+                    return json.dumps({
+                        'request_code': reqJson['request_code'],
+                        'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'response_result': 999,
+                        'response_data': {'data': 4}
+                    })
+                if not len(materialmodel_res) == 1:
+                    # 999 未知错误
+                    return json.dumps({
+                        'request_code': reqJson['request_code'],
+                        'response_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'response_result': 999,
+                        'response_data': {'data': 512}
+                    })
+                print(materialmodel_res)
+                t_x = int(area_res[0]['xAxis'] + int(materialmodel_res[0]['length'] / 2) + int(materialmodel_res[0].get('xAxisDelta', 0)))
+                t_y = int(area_res[0]['yAxis'] + int(materialmodel_res[0]['width'] / 2) + int(materialmodel_res[0].get('yAxisDelta', 0)))
+            else:
+                t_x = int(area_res[0]['xAxis'] + int(area_res[0]['length'] / 2))
+                t_y = int(area_res[0]['yAxis'] + int(area_res[0]['width'] / 2))
+            
+            # ==========================
             viewname = 'view_material'
             tablename = viewname.replace('view_', '')
             cols = FULLCOLS[viewname]
@@ -1006,9 +1014,11 @@ def manual():
             for material in res_reformat2:
                 # print(int(material['model']['size']['height']))
                 targetAreaHeight += int(material['model']['size']['height'])
+            # ==========================
+            
             targetPosition = {
-                'xAxis': int(area_res[0]['xAxis'] + int(materialmodel_res[0]['length'] / 2) + int(materialmodel_res[0].get('xAxisDelta', 0))),
-                'yAxis': int(area_res[0]['yAxis'] + int(materialmodel_res[0]['width'] / 2) + int(materialmodel_res[0].get('yAxisDelta', 0))),
+                'xAxis': t_x,
+                'yAxis': t_y,
                 'zAxis': 0
             }
             # targetPosition = {
